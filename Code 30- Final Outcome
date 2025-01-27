@@ -1,0 +1,201 @@
+#include <Servo.h> // Include the Servo library
+
+const int pirPin = A0;    // PIR sensor analog output connected to A0
+const int greenLed1 = 6;  // Green LED connected to digital pin 6
+const int redLed2 = 7;    // Red LED connected to digital pin 7
+const int blueLed3 = 8;   // Blue LED connected to digital pin 8
+const int blueLed4 = 9;   // Blue LED connected to digital pin 9
+const int greenLed5 = 10; // Green LED connected to digital pin 10
+const int greenLed6 = 11; // Green LED connected to digital pin 11
+const int redLed7 = 12;   // Red LED connected to digital pin 12
+const int servoPin1 = 4;  // Servo 1 connected to digital pin 4 (changed)
+const int servoPin2 = 3;  // Servo 2 connected to digital pin 3 (changed)
+const int contServoPin = 5; // Continuous servo connected to digital pin 5
+
+Servo servo1;        // Create a servo object for Servo 1
+Servo servo2;        // Create a servo object for Servo 2
+Servo contServo;     // Create a servo object for the continuous servo
+
+unsigned long startTime = 0;  // Track when the sequence starts
+bool sequenceActive = false;  // Flag to track if the sequence is active
+bool servoMovementComplete = false; // Flag to check if the servo movement is completed
+
+void setup() {
+  pinMode(greenLed1, OUTPUT);
+  pinMode(redLed2, OUTPUT);
+  pinMode(blueLed3, OUTPUT);
+  pinMode(blueLed4, OUTPUT);
+  pinMode(greenLed5, OUTPUT);
+  pinMode(greenLed6, OUTPUT);
+  pinMode(redLed7, OUTPUT);
+
+  servo1.attach(servoPin1);     // Attach Servo 1 to its pin
+  servo2.attach(servoPin2);     // Attach Servo 2 to its pin
+  contServo.attach(contServoPin); // Attach the continuous servo to pin 5
+
+  servo1.write(90);   // Initialize Servo 1 at neutral position
+  servo2.write(90);   // Initialize Servo 2 at neutral position
+  contServo.write(90); // Stop the continuous servo initially
+
+  Serial.begin(9600);
+  Serial.println("PIR Sensor with Sequential LEDs and Servos Initialized");
+}
+
+void loop() {
+  int sensorValue = analogRead(pirPin);  // Read the analog value from PIR sensor
+
+  // Map the sensor value to a range for triggering
+  int mappedValue = map(sensorValue, 1023, 0, 0, 1023);
+  Serial.print("Mapped Sensor Value: ");
+  Serial.println(mappedValue);
+
+  // Check if PIR sensor is triggered
+  if (mappedValue > 500 && !sequenceActive && !servoMovementComplete) {
+    sequenceActive = true;  // Start the servo movement sequence
+    startTime = millis();   // Record the start time
+    servoMovementComplete = false;  // Reset the movement completion flag
+    Serial.println("Servo movement triggered!");
+  }
+
+  if (sequenceActive) {
+    unsigned long currentTime = millis();
+    unsigned long elapsedTime = currentTime - startTime;
+
+    // 1. **Green LED 1 blinking** (For the first 3 seconds)
+    if (elapsedTime < 3000) {
+      if ((elapsedTime / 500) % 2 == 0) {
+        digitalWrite(greenLed1, HIGH);
+      } else {
+        digitalWrite(greenLed1, LOW);
+      }
+      contServo.write(94); // Continuous servo spins slowly clockwise during Green LED 1 blink
+    } else {
+      digitalWrite(greenLed1, LOW); // Ensure greenLed1 is off after 3 seconds
+      contServo.write(90); // Stop the continuous servo after 3 seconds
+    }
+
+    // 2. **Red LED 2 blinking** (after Green LED 1 stops blinking)
+    if (elapsedTime >= 3000 && elapsedTime < 8000) { // 5 seconds of blinking
+      if ((elapsedTime / 250) % 2 == 0) {
+        digitalWrite(redLed2, HIGH); // Blink red LED 2
+      } else {
+        digitalWrite(redLed2, LOW);  // Blink red LED 2
+      }
+    }
+
+    // **Turn on LEDs in sequence with delays**
+    if (elapsedTime >= 3600 && elapsedTime < 8000) {
+      digitalWrite(blueLed3, HIGH);  // Blue LED 3 ON
+      digitalWrite(blueLed4, HIGH);  // Blue LED 4 ON
+    }
+    if (elapsedTime >= 4200 && elapsedTime < 8000) {
+      digitalWrite(greenLed5, HIGH); // Green LED 5 ON
+      digitalWrite(greenLed6, HIGH); // Green LED 6 ON
+    }
+    if (elapsedTime >= 4800 && elapsedTime < 8000) {
+      digitalWrite(redLed7, HIGH);   // Red LED 7 ON
+    }
+
+    // 3. **Servo movement** begins after Red LED 2 starts blinking (from 3000ms to 5000ms)
+    if (elapsedTime >= 3000 && elapsedTime < 5000) {
+      int angle1 = map(elapsedTime, 3000, 5000, 0, 40); // Servo 1 moves anti-clockwise
+      int angle2 = map(elapsedTime, 3000, 5000, 0, 40); // Servo 2 moves clockwise
+      servo1.write(90 - angle1); // Servo 1 movement
+      servo2.write(90 + angle2); // Servo 2 movement
+    }
+
+    // 4. **LEDs shine steadily for the first 10 seconds of the hold**
+    if (elapsedTime >= 5000 && elapsedTime < 15000) {
+      digitalWrite(blueLed3, HIGH);
+      digitalWrite(blueLed4, HIGH);
+      digitalWrite(greenLed5, HIGH);
+      digitalWrite(greenLed6, HIGH);
+      digitalWrite(redLed7, HIGH);
+    }
+
+    // 5. **LEDs blink panickly for the last 5 seconds of the hold**
+    if (elapsedTime >= 15000 && elapsedTime < 20000) {
+      if ((elapsedTime / 100) % 2 == 0) { // Fast blinking every 100ms
+        digitalWrite(blueLed3, HIGH);
+        digitalWrite(blueLed4, HIGH);
+        digitalWrite(greenLed5, LOW);
+        digitalWrite(greenLed6, LOW);
+        digitalWrite(redLed7, HIGH);
+        digitalWrite(redLed2, LOW);
+      } else {
+        digitalWrite(blueLed3, HIGH);
+        digitalWrite(blueLed4, HIGH);
+        digitalWrite(greenLed5, HIGH);
+        digitalWrite(greenLed6, HIGH);
+        digitalWrite(redLed7, HIGH);
+        digitalWrite(redLed2, HIGH);
+      }
+    }
+      
+
+    // 6. **Servo reverse movement** back to start position (after the hold ends)
+    if (elapsedTime >= 20000 && elapsedTime < 22000) {
+      if (elapsedTime == 20000) {
+        digitalWrite(blueLed3, HIGH);
+        digitalWrite(blueLed4, HIGH);
+        digitalWrite(greenLed5, HIGH);
+        digitalWrite(greenLed6, HIGH);
+        digitalWrite(redLed2, HIGH);
+        digitalWrite(redLed7, LOW); // Turn off Red LED 7 immediately
+      }
+      if (elapsedTime >= 20600) {
+        digitalWrite(blueLed3, HIGH);
+        digitalWrite(blueLed4, HIGH);
+        digitalWrite(redLed2, HIGH);
+        digitalWrite(greenLed5, HIGH); // Turn off Green LED 5
+        digitalWrite(greenLed6, HIGH); // Turn off Green LED 6
+        digitalWrite(redLed7, LOW);
+      }
+      if (elapsedTime >= 21200) {
+       digitalWrite(blueLed3, HIGH);
+        digitalWrite(blueLed4, HIGH);
+        digitalWrite(redLed2, HIGH);
+        digitalWrite(greenLed5, LOW); // Turn off Green LED 5
+        digitalWrite(greenLed6, LOW); // Turn off Green LED 6
+        digitalWrite(redLed7, LOW);
+      }
+
+       if (elapsedTime >= 21800) {
+        digitalWrite(blueLed3, LOW);
+        digitalWrite(blueLed4, LOW);
+        digitalWrite(redLed2, HIGH);
+        digitalWrite(greenLed5, LOW); // Turn off Green LED 5
+        digitalWrite(greenLed6, LOW); // Turn off Green LED 6
+        digitalWrite(redLed7, LOW);
+      }
+
+      int angle1 = map(elapsedTime, 20000, 22000, 40, 0); // Reverse Servo 1
+      int angle2 = map(elapsedTime, 20000, 22000, 40, 0); // Reverse Servo 2
+      servo1.write(90 - angle1);
+      servo2.write(90 + angle2);
+    }
+
+    if (elapsedTime >= 22400) {
+      // Turn off LEDs and reset servos after 22 seconds
+      turnOffAllLedsAndResetServos();
+      sequenceActive = false; // Reset the sequence
+      servoMovementComplete = true; // Set the movement complete flag
+    }
+  }
+
+  delay(50); // Small delay to smooth transitions
+}
+
+void turnOffAllLedsAndResetServos() {
+  digitalWrite(greenLed1, LOW);
+  digitalWrite(redLed2, LOW);
+  digitalWrite(blueLed3, LOW);
+  digitalWrite(blueLed4, LOW);
+  digitalWrite(greenLed5, LOW);
+  digitalWrite(greenLed6, LOW);
+  digitalWrite(redLed7, LOW);
+
+  servo1.write(90); // Reset Servo 1 to neutral
+  servo2.write(90); // Reset Servo 2 to neutral
+  contServo.write(90); // Stop the continuous servo
+}
