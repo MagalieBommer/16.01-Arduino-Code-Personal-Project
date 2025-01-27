@@ -1,0 +1,100 @@
+const int pirPin = A0;    // PIR sensor analog output connected to A0
+const int greenLed1 = 6;  // Green LED connected to digital pin 6, 1
+const int redLed2 = 7;    // Red LED connected to digital pin 7, 2
+const int blueLed3 = 8;   // Blue LED connected to digital pin 8, 3
+const int blueLed4 = 9;   // Blue LED connected to digital pin 9, 4
+const int greenLed5 = 10; // Green LED connected to digital pin 10, 5
+const int greenLed6 = 11; // Green LED connected to digital pin 11, 6
+const int redLed7 = 12;   // Red LED connected to digital pin 12, 7
+
+unsigned long startTime = 0; // Track when the sequence starts
+bool sequenceActive = false; // Flag to track if the sequence is active
+
+void setup() {
+  pinMode(greenLed1, OUTPUT);
+  pinMode(redLed2, OUTPUT);
+  pinMode(blueLed3, OUTPUT);
+  pinMode(blueLed4, OUTPUT);
+  pinMode(greenLed5, OUTPUT);
+  pinMode(greenLed6, OUTPUT);
+  pinMode(redLed7, OUTPUT);
+
+  Serial.begin(9600);
+  Serial.println("PIR Sensor with Sequential LEDs Initialized");
+}
+
+void loop() {
+  int sensorValue = analogRead(pirPin);  // Read the analog value from PIR sensor
+  
+  // Map the sensor value so it reads 0 when dark and increases as heat source is detected
+  int mappedValue = map(sensorValue, 1023, 0, 0, 1023);
+  Serial.print("Mapped Sensor Value: ");
+  Serial.println(mappedValue);
+
+  if (mappedValue > 5) {
+    if (!sequenceActive) {
+      startTime = millis(); // Start the sequence
+      sequenceActive = true;
+    }
+  } else {
+    sequenceActive = false; // Reset if sensor value drops below 500
+    turnOffAllLeds();
+    return; // Exit early
+  }
+
+  if (sequenceActive) {
+    unsigned long currentTime = millis();
+    unsigned long elapsedTime = currentTime - startTime;
+
+    // Blink redLed2 (Pin 7) every 400ms
+    if ((currentTime / 200) % 2 == 0) {
+      digitalWrite(redLed2, HIGH);
+    } else {
+      digitalWrite(redLed2, LOW);
+    }
+
+    // Turn on greenLed1 (Pin 6) blinking slowly after 1 second
+    if (elapsedTime >= 1000 && elapsedTime < 3000) {
+      if ((currentTime / 500) % 2 == 0) {
+        digitalWrite(greenLed1, HIGH);
+      } else {
+        digitalWrite(greenLed1, LOW);
+      }
+    }
+
+    // Turn on blueLed3 (Pin 8) and blueLed4 (Pin 9) after 3 seconds
+    if (elapsedTime >= 3000) {
+      digitalWrite(blueLed3, HIGH);
+      digitalWrite(blueLed4, HIGH);
+    }
+
+    // Turn on greenLed5 (Pin 10) and greenLed6 (Pin 11) after 4 seconds
+    if (elapsedTime >= 4000) {
+      digitalWrite(greenLed5, HIGH);
+      digitalWrite(greenLed6, HIGH);
+    }
+
+    // Turn on redLed7 (Pin 12) after 5 seconds
+    if (elapsedTime >= 5000) {
+      digitalWrite(redLed7, HIGH);
+    }
+
+    // Turn off all LEDs after 10 seconds
+    if (elapsedTime >= 10000) {
+      turnOffAllLeds();
+      sequenceActive = false; // Reset the sequence
+    }
+  }
+
+  delay(50); // Small delay to smooth LED transitions
+}
+
+void turnOffAllLeds() {
+  digitalWrite(greenLed1, LOW);
+  digitalWrite(redLed2, LOW);
+  digitalWrite(blueLed3, LOW);
+  digitalWrite(blueLed4, LOW);
+  digitalWrite(greenLed5, LOW);
+  digitalWrite(greenLed6, LOW);
+  digitalWrite(redLed7, LOW);
+}
